@@ -1,6 +1,7 @@
 package ipanonymizerpipeline;
 
 import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.Properties;
 
@@ -9,14 +10,15 @@ import com.clickhouse.jdbc.ClickHouseDataSource;
 import java.sql.Connection;
 
 
-public class ClickHouseClient extends Thread {
+public class ClickHouseClient implements Runnable {
 
-    private Connection connection;
-    public PreparedStatement preparedInsert;
+    public Connection connection;
     private final Kafka consumer;
+    public PreparedStatement insertStatement;
+
 
     ClickHouseClient(String url, Kafka consumer, Properties props) {
-        this.consumer = consumer;
+
         try {
             ClickHouseDataSource dataSource = new ClickHouseDataSource(url, props);
             this.connection = dataSource.getConnection();
@@ -26,12 +28,17 @@ public class ClickHouseClient extends Thread {
             System.out.println(e);
             System. exit(0);
         };
-        prepareInsertStatement();
+
+        this.consumer = consumer;
+        try {
+            this.prepareInsertStatement();
+        } catch (SQLException e) {
+            System.out.println(e);
+        }
     }
 
-    private void prepareInsertStatement () {
-        try {
-            this.preparedInsert = this.connection.prepareStatement(
+    private synchronized void prepareInsertStatement () throws SQLException {
+            PreparedStatement preparedStatement = this.connection.prepareStatement(
                 "insert into http_log select * from input('timestamp DateTime," + //
                                         "    resource_id UInt64," + //
                                         "    bytes_sent UInt64," + //
@@ -41,23 +48,22 @@ public class ClickHouseClient extends Thread {
                                         "    method LowCardinality(String)," + //
                                         "    remote_addr String," + //
                                         "    url String')"
-                );
-        } catch (Exception e) {
-            System.out.println("Failed making prepared insert SQL Statement, stopping executing");
-            System.out.println(e.getMessage());
-            System. exit(0);
-        };
+            );
+            this.insertStatement = preparedStatement;
+            this.consumer.insertStatement = this.insertStatement;
     }
 
-    public synchronized void insertHttpLog () throws InterruptedException {
+    public synchronized void executeQuery (PreparedStatement preparedStatement) throws InterruptedException {
 
         // Trying 3 times to push the data to the clickhouse, just in case.
 
         for (int attempt = 1; attempt <= 3; attempt++) {
             try {
-                this.preparedInsert.executeBatch();
+                connection.setAutoCommit(false);
+                preparedStatement.executeBatch();
+                connection.commit();
                 System.out.println("Inserted http logs at " + LocalDateTime.now());
-                prepareInsertStatement();
+                connection.setAutoCommit(true);
                 return;
             } catch (Exception e) {
                 System.out.println("Failed inserting logs, attempt " + attempt);
@@ -72,26 +78,41 @@ public class ClickHouseClient extends Thread {
     @Override
     public void run() {
         System.err.println("Starting posting");
-        this.consumer.insertStatement = this.preparedInsert;
-
-        this.consumer.start();
-
+        synchronized (this.insertStatement) {
+            this.consumer.isConsuming = true;
+            this.insertStatement.notify();
+        }
+        
         while (true) {
             try {
                 Thread.sleep(60000);
-                synchronized (this.consumer) {
-                    System.out.println("Stropping Kafka");
-                    this.consumer.wait();
-                    insertHttpLog();
+                this.consumer.isConsuming = false;
+                System.out.println("Stropping Kafka");
+                synchronized (this.insertStatement) {    
+                    this.executeQuery(this.consumer.insertStatement);
                 }
             } catch (InterruptedException e) {
                 e.printStackTrace();
             } finally {
-                synchronized (this.consumer) {
-                    this.consumer.notify();
+                synchronized (this.insertStatement) {
+                    this.consumer.isConsuming = true;
+                    this.insertStatement.notify();
+                    System.out.println("Starting Kafka");
+                    }
                 }
-                System.out.println("Starting Kafka");
             }
-        }
     }
 }
+
+
+
+// create table http_log (
+//   timestamp DateTime,
+//   resource_id UInt64,
+//   bytes_sent UInt64,
+//   request_time_milli UInt64,
+//   response_status UInt16,
+//   cache_status LowCardinality(String),
+//   method LowCardinality(String),
+//   remote_addr String,
+//   url String) ENGINE = Log

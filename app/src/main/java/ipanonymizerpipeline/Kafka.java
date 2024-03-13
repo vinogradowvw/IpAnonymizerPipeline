@@ -8,6 +8,7 @@ import java.sql.SQLException;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.Properties;
+import java.util.logging.Logger;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -16,12 +17,15 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.serialization.ByteBufferDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 
+import com.clickhouse.logging.LoggerFactory;
 
 
-public class Kafka extends Thread {
+
+public class Kafka implements Runnable{
 
     private final KafkaConsumer<byte[], ByteBuffer> сonsumer;
     public PreparedStatement insertStatement;
+    public boolean isConsuming = false;
 
     Kafka (String bootstrapServises, String kafkaTopic, String groupId) {
         Properties props = new Properties();
@@ -35,25 +39,6 @@ public class Kafka extends Thread {
         this.сonsumer = new KafkaConsumer<>(props);
         this.сonsumer.subscribe(Collections.singletonList(kafkaTopic));
         System.err.println("Connected to kafka");
-    }
-
-    private void consumeMessages () {
-
-        while (true) {
-
-            ConsumerRecords<byte[], ByteBuffer> records = this.сonsumer.poll(Duration.ofMillis(100));
-        
-            for (ConsumerRecord<byte[], ByteBuffer> record : records) {
-                try {
-                    HtmlLog.HttpLogRecord.Reader httpLog = CapnpDeserializer.getDeserializer(record.value());
-                    System.out.println(Anonymizer.anonymizeIp(httpLog.getRemoteAddr().toString()));
-                    addLogToSQLStatement(insertStatement, httpLog);
-                } catch (Exception e) {
-                    System.out.println("Cannot deserialize message" + e);
-                }
-            }
-            this.сonsumer.commitAsync();
-        }
     }
 
     private void addLogToSQLStatement (PreparedStatement insertStatement, HtmlLog.HttpLogRecord.Reader httpLog) {
@@ -72,10 +57,42 @@ public class Kafka extends Thread {
             e.printStackTrace();
         }
     }
+
+    
     @Override
     public void run() {
         System.out.println("Starting consuming");
-        this.consumeMessages();
+
+        int counter = 0;
+
+        while (true) {
+            synchronized (this.insertStatement) {
+                while (!this.isConsuming) {
+                    try {
+                        this.insertStatement.wait();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+
+                ConsumerRecords<byte[], ByteBuffer> records = this.сonsumer.poll(Duration.ofMillis(100));
+
+                for (ConsumerRecord<byte[], ByteBuffer> record : records) {
+                    try {
+                        HtmlLog.HttpLogRecord.Reader httpLog = CapnpDeserializer.getDeserializer(record.value());
+                        counter++;
+                        System.out.println(Anonymizer.anonymizeIp(httpLog.getRemoteAddr().toString()));
+                        System.out.println(counter);
+                        addLogToSQLStatement(this.insertStatement, httpLog);
+                    } catch (Exception e) {
+                        System.out.println("Cannot deserialize message" + e);
+                    }
+                }
+
+                this.сonsumer.commitAsync();
+            }
+        }
     }
+
 }
 
