@@ -9,7 +9,7 @@ public class Main {
 
         Kafka consumer = new Kafka("localhost:9092", "http_log", "data-engineering-task-reader");
         
-        ClickHouseClient chClient = new ClickHouseClient("jdbc:clickhouse://localhost:8123/default", consumer, props);
+        ClickHouseClient chClient = new ClickHouseClient("jdbc:clickhouse:http://clickhouse://localhost:8123/default", consumer, props);
 
         Thread chThread = new Thread(chClient, "chThread");
         chThread.start();

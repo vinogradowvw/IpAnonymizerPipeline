@@ -17,8 +17,6 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.serialization.ByteBufferDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 
-import com.clickhouse.logging.LoggerFactory;
-
 
 
 public class Kafka implements Runnable{
@@ -26,6 +24,8 @@ public class Kafka implements Runnable{
     private final KafkaConsumer<byte[], ByteBuffer> сonsumer;
     public PreparedStatement insertStatement;
     public boolean isConsuming = false;
+    Logger logger = Logger.getLogger(Kafka.class.getName());
+
 
     Kafka (String bootstrapServises, String kafkaTopic, String groupId) {
         Properties props = new Properties();
@@ -38,7 +38,7 @@ public class Kafka implements Runnable{
 
         this.сonsumer = new KafkaConsumer<>(props);
         this.сonsumer.subscribe(Collections.singletonList(kafkaTopic));
-        System.err.println("Connected to kafka");
+        logger.info("Connected to kafka");
     }
 
     private void addLogToSQLStatement (PreparedStatement insertStatement, HtmlLog.HttpLogRecord.Reader httpLog) {
@@ -54,6 +54,7 @@ public class Kafka implements Runnable{
             insertStatement.setString(9, httpLog.getUrl().toString());
             insertStatement.addBatch();
         } catch (SQLException e) {
+            logger.warning("Error while pasting the data to the SQL statement");
             e.printStackTrace();
         }
     }
@@ -61,7 +62,7 @@ public class Kafka implements Runnable{
     
     @Override
     public void run() {
-        System.out.println("Starting consuming");
+        logger.info("Kafka started consuming");
 
         int counter = 0;
 
@@ -71,6 +72,7 @@ public class Kafka implements Runnable{
                     try {
                         this.insertStatement.wait();
                     } catch (InterruptedException e) {
+                        logger.info("InterruptedException while wait() in kafka");
                         e.printStackTrace();
                     }
                 }
@@ -81,14 +83,13 @@ public class Kafka implements Runnable{
                     try {
                         HtmlLog.HttpLogRecord.Reader httpLog = CapnpDeserializer.getDeserializer(record.value());
                         counter++;
-                        System.out.println(Anonymizer.anonymizeIp(httpLog.getRemoteAddr().toString()));
-                        System.out.println(counter);
+                        logger.info("Recieved message N" + counter);
                         addLogToSQLStatement(this.insertStatement, httpLog);
                     } catch (Exception e) {
-                        System.out.println("Cannot deserialize message" + e);
+                        logger.warning("Can not deserialize the message");
+                        e.printStackTrace();
                     }
                 }
-
                 this.сonsumer.commitAsync();
             }
         }

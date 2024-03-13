@@ -4,6 +4,7 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.Properties;
+import java.util.logging.Logger;
 
 import com.clickhouse.jdbc.ClickHouseDataSource;
 
@@ -15,6 +16,7 @@ public class ClickHouseClient implements Runnable {
     public Connection connection;
     private final Kafka consumer;
     public PreparedStatement insertStatement;
+    private Logger logger = Logger.getLogger(ClickHouseClient.class.getName());
 
 
     ClickHouseClient(String url, Kafka consumer, Properties props) {
@@ -22,10 +24,10 @@ public class ClickHouseClient implements Runnable {
         try {
             ClickHouseDataSource dataSource = new ClickHouseDataSource(url, props);
             this.connection = dataSource.getConnection();
-            System.out.println("Connected to ClickHouse");
+            logger.info("Connected to ClickHouse");
         } catch (Exception e) {
-            System.out.println("Can not connect to ClickHouse, stopping executing");
-            System.out.println(e);
+            logger.warning("Can not connect to ClickHouse, stopping executing");
+            e.printStackTrace();
             System. exit(0);
         };
 
@@ -33,7 +35,7 @@ public class ClickHouseClient implements Runnable {
         try {
             this.prepareInsertStatement();
         } catch (SQLException e) {
-            System.out.println(e);
+            e.printStackTrace();
         }
     }
 
@@ -59,25 +61,22 @@ public class ClickHouseClient implements Runnable {
 
         for (int attempt = 1; attempt <= 3; attempt++) {
             try {
-                connection.setAutoCommit(false);
                 preparedStatement.executeBatch();
-                connection.commit();
-                System.out.println("Inserted http logs at " + LocalDateTime.now());
-                connection.setAutoCommit(true);
+                logger.info("Inserted http logs at " + LocalDateTime.now());
                 return;
             } catch (Exception e) {
-                System.out.println("Failed inserting logs, attempt " + attempt);
-                System.out.println(e.getMessage());
+                logger.warning("Failed inserting logs, attempt " + attempt);
+                e.printStackTrace();
                 Thread.sleep(2500);
             }
         }
-        System.out.println("Failed inserting logs after " + 3 + " attempts, stopping execution");
+        logger.warning("Failed inserting logs after " + 3 + " attempts, stopping execution");
         System.exit(0);
     }
 
     @Override
     public void run() {
-        System.err.println("Starting posting");
+        logger.info("Starting posting");
         synchronized (this.insertStatement) {
             this.consumer.isConsuming = true;
             this.insertStatement.notify();
@@ -87,7 +86,7 @@ public class ClickHouseClient implements Runnable {
             try {
                 Thread.sleep(60000);
                 this.consumer.isConsuming = false;
-                System.out.println("Stropping Kafka");
+                logger.info("Stropping Kafka");
                 synchronized (this.insertStatement) {    
                     this.executeQuery(this.consumer.insertStatement);
                 }
@@ -97,22 +96,9 @@ public class ClickHouseClient implements Runnable {
                 synchronized (this.insertStatement) {
                     this.consumer.isConsuming = true;
                     this.insertStatement.notify();
-                    System.out.println("Starting Kafka");
+                    logger.info("Starting Kafka");
                     }
                 }
             }
     }
 }
-
-
-
-// create table http_log (
-//   timestamp DateTime,
-//   resource_id UInt64,
-//   bytes_sent UInt64,
-//   request_time_milli UInt64,
-//   response_status UInt16,
-//   cache_status LowCardinality(String),
-//   method LowCardinality(String),
-//   remote_addr String,
-//   url String) ENGINE = Log
