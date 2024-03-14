@@ -59,13 +59,8 @@ public class Kafka implements Runnable{
         }
     }
 
-    
-    @Override
-    public void run() {
-        logger.info("Kafka started consuming");
-
+    private void consumeMessages () {
         int counter = 0;
-
         while (true) {
             synchronized (this.insertStatement) {
                 while (!this.isConsuming) {
@@ -93,6 +88,13 @@ public class Kafka implements Runnable{
                 this.сonsumer.commitAsync();
             }
         }
+
+    }
+    
+    @Override
+    public void run() {
+        logger.info("Kafka started consuming");
+        consumeMessages();
     }
 
 }

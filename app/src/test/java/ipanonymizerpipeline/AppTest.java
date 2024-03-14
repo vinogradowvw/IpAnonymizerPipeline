@@ -3,9 +3,87 @@
  */
 package ipanonymizerpipeline;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.time.Duration;
+import java.util.Collections;
+import java.util.Properties;
+
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.serialization.ByteArrayDeserializer;
+import org.apache.kafka.common.serialization.ByteArraySerializer;
+import org.capnproto.ArrayOutputStream;
 import org.junit.jupiter.api.Test;
 
+
+
 class AppTest {
-    @Test void appHasAGreeting() {
+
+    ByteBuffer getMockBuffer () throws IOException {
+        org.capnproto.MessageBuilder message = new org.capnproto.MessageBuilder();
+        HtmlLog.HttpLogRecord.Builder httpLog = message.initRoot(HtmlLog.HttpLogRecord.factory);
+        
+        httpLog.setTimestampEpochMilli(1710335474); // 2024-03-13 13:11:14	
+        httpLog.setResourceId(582757444);
+        httpLog.setBytesSent(2075190);
+        httpLog.setRequestTimeMilli(7543);
+        httpLog.setResponseStatus((short) 502);
+        httpLog.setCacheStatus("HIT");
+        httpLog.setMethod("GET");
+        httpLog.setRemoteAddr("170.172.222.100");
+        httpLog.setUrl("/a/b/media/files/5wd1hue25guwva88lmrt4lspboq0ft5fd30jqglwd4humzt5zbqcr.json");
+
+        ByteBuffer buf = ByteBuffer.allocate(512);
+
+        org.capnproto.Serialize.write(new ArrayOutputStream(buf), message);
+        
+        return buf;
+    }
+
+
+    @Test 
+    void capnpDecodingTest() throws IOException {
+
+        HtmlLog.HttpLogRecord.Reader httpLog = CapnpDeserializer.getDeserializer(getMockBuffer());
+        
+        assertEquals(1710335474, httpLog.getTimestampEpochMilli());
+        assertEquals(582757444, httpLog.getResourceId());
+        assertEquals(2075190, httpLog.getBytesSent());
+        assertEquals(7543, httpLog.getRequestTimeMilli());
+        assertEquals(502, httpLog.getResponseStatus());
+        assertEquals("HIT", httpLog.getCacheStatus().toString());
+        assertEquals("GET", httpLog.getMethod().toString());
+        assertEquals("170.172.222.100", httpLog.getRemoteAddr().toString());
+        assertEquals("/a/b/media/files/5wd1hue25guwva88lmrt4lspboq0ft5fd30jqglwd4humzt5zbqcr.json", httpLog.getUrl().toString());
+    }
+
+
+    @Test
+    void anonymizeIpTest() {
+        assertEquals("170.172.222.X", Anonymizer.anonymizeIp("170.172.222.100"));
+    }
+
+    @Test
+    void testKafkaConnection() {
+        // Создаем экземпляр Kafka
+        Kafka kafka = new Kafka("localhost:9092", "test-topic", "test-group");
+
+        // Проверяем успешность подключения
+        assertTrue(kafka != null, "Класс Kafka не был успешно создан");
+    }
+
+    // Тест на фактическое чтение сообщений из Kafka
+    @Test
+    void testKafkaMessageReading() {
+
+        
     }
 }
