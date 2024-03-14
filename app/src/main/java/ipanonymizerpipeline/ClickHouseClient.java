@@ -61,8 +61,10 @@ public class ClickHouseClient implements Runnable {
 
         for (int attempt = 1; attempt <= 3; attempt++) {
             try {
+                long startTime = System.currentTimeMillis();
                 preparedStatement.executeBatch();
-                logger.info("Inserted http logs at " + LocalDateTime.now());
+                long elapsedTime = System.currentTimeMillis() - startTime;
+                logger.info("Inserted http logs at " + LocalDateTime.now() + "in " + elapsedTime + "ms");
                 return;
             } catch (Exception e) {
                 logger.warning("Failed inserting logs, attempt " + attempt);

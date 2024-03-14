@@ -78,7 +78,7 @@ public class Kafka implements Runnable{
                     try {
                         HtmlLog.HttpLogRecord.Reader httpLog = CapnpDeserializer.getDeserializer(record.value());
                         counter++;
-                        logger.info("Recieved message N" + counter);
+                        logger.info("Recieved message N " + counter);
                         addLogToSQLStatement(this.insertStatement, httpLog);
                     } catch (Exception e) {
                         logger.warning("Can not deserialize the message");
@@ -88,7 +88,6 @@ public class Kafka implements Runnable{
                 this.сonsumer.commitAsync();
             }
         }
-
     }
     
     @Override

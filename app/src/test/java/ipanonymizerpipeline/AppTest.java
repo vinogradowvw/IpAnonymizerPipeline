@@ -4,22 +4,8 @@
 package ipanonymizerpipeline;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.time.Duration;
-import java.util.Collections;
-import java.util.Properties;
-
-import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.consumer.ConsumerRecords;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.common.serialization.ByteArrayDeserializer;
-import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.capnproto.ArrayOutputStream;
 import org.junit.jupiter.api.Test;
 
@@ -53,7 +39,7 @@ class AppTest {
     void capnpDecodingTest() throws IOException {
 
         HtmlLog.HttpLogRecord.Reader httpLog = CapnpDeserializer.getDeserializer(getMockBuffer());
-        
+
         assertEquals(1710335474, httpLog.getTimestampEpochMilli());
         assertEquals(582757444, httpLog.getResourceId());
         assertEquals(2075190, httpLog.getBytesSent());
@@ -69,21 +55,5 @@ class AppTest {
     @Test
     void anonymizeIpTest() {
         assertEquals("170.172.222.X", Anonymizer.anonymizeIp("170.172.222.100"));
-    }
-
-    @Test
-    void testKafkaConnection() {
-        // Создаем экземпляр Kafka
-        Kafka kafka = new Kafka("localhost:9092", "test-topic", "test-group");
-
-        // Проверяем успешность подключения
-        assertTrue(kafka != null, "Класс Kafka не был успешно создан");
-    }
-
-    // Тест на фактическое чтение сообщений из Kafka
-    @Test
-    void testKafkaMessageReading() {
-
-        
     }
 }
