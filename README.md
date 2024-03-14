@@ -29,3 +29,15 @@ As a Next step for improvement could be crating ability to process the data with
 As altenative, I can implement it with Spark Streaming or Flink as a data processing tool, it could be less flexible than app written from scratch, but maybe it will take responsibilities such as parallel processing on itself. But i am not sure if it is possible to make a capnp decoding there.
 
 ### Testing and benchmarking
+
+Decoding and anonymization takes ~ 140ms
+
+Inserting the data to the table takes ~ 110ms
+
+Quering data from totals table ~ 1-7 ms
+
+Estimate disk space for http_log table:
+~ 148 bytes each message
+= 148 * average incoming message rate * retention of the aggregated data
+
+Benchmark results:
