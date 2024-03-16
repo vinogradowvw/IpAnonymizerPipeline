@@ -19,6 +19,9 @@ import org.apache.kafka.common.serialization.ByteBufferDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 
 
+/*
+ * Class for Kafka consumer.
+ */
 
 public class Kafka implements Runnable{
 
@@ -28,6 +31,10 @@ public class Kafka implements Runnable{
     public boolean isConsuming = false;
     Logger logger = Logger.getLogger(Kafka.class.getName());
 
+    
+    /*
+    * Initializing consumer itself and backup for messages
+    */
 
     Kafka (String bootstrapServises, String kafkaTopic, String groupId) {
 
@@ -46,6 +53,12 @@ public class Kafka implements Runnable{
         logger.info("Connected to kafka");
     }
 
+
+    
+    /*
+    * Method for adding log to the statement from deserializer
+    */
+    
     public void addLogToSQLStatement(PreparedStatement ps, HtmlLog.HttpLogRecord.Reader httpLog) {
         try {
             ps.setTimestamp(1, new Timestamp(httpLog.getTimestampEpochMilli()));
@@ -64,6 +77,11 @@ public class Kafka implements Runnable{
         }
     }
 
+    
+    /*
+    * Infinitely consuming messages and adding each to the Prepared Statement 
+    */
+    
     private void consumeMessages () {
         while (true) {
             synchronized (this.insertStatement) {
@@ -93,6 +111,8 @@ public class Kafka implements Runnable{
             }
         }
     }
+
+    // Starting the thread.
     
     @Override
     public void run() {
