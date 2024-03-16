@@ -53,7 +53,7 @@ GROUP BY
 ```
 
 ### Time
-For the whole project I spent around 10h approximately. I spent most of the time with capnp and solving problems with proxy.
+For the whole project I spent around 10h approximately. I spent most of the time solving problems with proxy and exception handling and stuck a little bit in the beggining with the capnp.
 
 ### Next steps
 As a Next step for improvement could be crating ability to process the data with more streams. But at this point with current demand of traffic from the "http-log-kafka-producer" it is not really necessary. Also, as I said, the application could be slightly refactored to "DIY data processing framework" that could be used to solve more problems than just this one, but it needs a context to start refactoring.
