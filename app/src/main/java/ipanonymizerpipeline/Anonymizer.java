@@ -1,5 +1,9 @@
 package ipanonymizerpipeline;
 
+/*
+ * The anonymizer class (just inserting X in the last part of ip)
+ */
+
 
 public class Anonymizer {
 
