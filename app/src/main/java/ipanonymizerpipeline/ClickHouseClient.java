@@ -11,6 +11,9 @@ import com.clickhouse.jdbc.ClickHouseDataSource;
 
 import java.sql.Connection;
 
+/*
+ * This class is responsible for connection with database and sending the data to it.
+ */
 
 public class ClickHouseClient implements Runnable {
 
@@ -18,6 +21,10 @@ public class ClickHouseClient implements Runnable {
     private final Kafka consumer;
     public PreparedStatement insertStatement;
     private Logger logger = Logger.getLogger(ClickHouseClient.class.getName());
+
+    /*
+     * <init> getting connection to db by url and getting the object of Kafka to know what is the needed data source.
+     */
 
     ClickHouseClient(String url, Kafka consumer, Properties props) {
 
@@ -61,6 +68,11 @@ public class ClickHouseClient implements Runnable {
         }
     }
 
+    
+    /*
+     * The method prepareInsertStatement returning needed blank Prepared Statement
+     */
+    
     private synchronized PreparedStatement prepareInsertStatement () throws SQLException {
             return(this.connection.prepareStatement(
                 "insert into http_log select * from input('timestamp DateTime," + //
@@ -73,6 +85,11 @@ public class ClickHouseClient implements Runnable {
                                         "    remote_addr String," + //
                                         "    url String')"));
     }
+
+    
+    /*
+     * tryExecute is method in which implemented logic with executing the statement and catching and handling the exceptions.
+     */
 
     public synchronized void tryExecute() throws InterruptedException, SQLException {
 
@@ -114,6 +131,11 @@ public class ClickHouseClient implements Runnable {
             }
         }
     }
+
+    
+    /*
+     * The method for the running thread. Basically starting the whole pipeline from here. every 60,1 seconds stopping conusumer and sending the data to DB
+     */
 
     @Override
     public void run() {
