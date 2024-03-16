@@ -8,6 +8,7 @@ import java.sql.SQLException;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.Properties;
+import java.util.ArrayList;
 import java.util.logging.Logger;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -22,12 +23,16 @@ import org.apache.kafka.common.serialization.StringDeserializer;
 public class Kafka implements Runnable{
 
     private final KafkaConsumer<byte[], ByteBuffer> сonsumer;
+    public ArrayList<HtmlLog.HttpLogRecord.Reader> messagesBackup;
     public PreparedStatement insertStatement;
     public boolean isConsuming = false;
     Logger logger = Logger.getLogger(Kafka.class.getName());
 
 
     Kafka (String bootstrapServises, String kafkaTopic, String groupId) {
+
+        this.messagesBackup = new ArrayList<HtmlLog.HttpLogRecord.Reader>();
+
         Properties props = new Properties();
 
         props.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServises);
@@ -41,18 +46,18 @@ public class Kafka implements Runnable{
         logger.info("Connected to kafka");
     }
 
-    private void addLogToSQLStatement (PreparedStatement insertStatement, HtmlLog.HttpLogRecord.Reader httpLog) {
+    public void addLogToSQLStatement(PreparedStatement ps, HtmlLog.HttpLogRecord.Reader httpLog) {
         try {
-            insertStatement.setTimestamp(1, new Timestamp(httpLog.getTimestampEpochMilli()));
-            insertStatement.setLong(2,  httpLog.getResourceId());
-            insertStatement.setLong(3, httpLog.getBytesSent());
-            insertStatement.setLong(4, httpLog.getRequestTimeMilli());
-            insertStatement.setShort(5, (short) httpLog.getResponseStatus());
-            insertStatement.setString(6, httpLog.getCacheStatus().toString());
-            insertStatement.setString(7, httpLog.getMethod().toString());
-            insertStatement.setString(8, Anonymizer.anonymizeIp(httpLog.getRemoteAddr().toString()));
-            insertStatement.setString(9, httpLog.getUrl().toString());
-            insertStatement.addBatch();
+            ps.setTimestamp(1, new Timestamp(httpLog.getTimestampEpochMilli()));
+            ps.setLong(2,  httpLog.getResourceId());
+            ps.setLong(3, httpLog.getBytesSent());
+            ps.setLong(4, httpLog.getRequestTimeMilli());
+            ps.setShort(5, (short) httpLog.getResponseStatus());
+            ps.setString(6, httpLog.getCacheStatus().toString());
+            ps.setString(7, httpLog.getMethod().toString());
+            ps.setString(8, Anonymizer.anonymizeIp(httpLog.getRemoteAddr().toString()));
+            ps.setString(9, httpLog.getUrl().toString());
+            ps.addBatch();
         } catch (SQLException e) {
             logger.warning("Error while pasting the data to the SQL statement");
             e.printStackTrace();
@@ -60,7 +65,6 @@ public class Kafka implements Runnable{
     }
 
     private void consumeMessages () {
-        int counter = 0;
         while (true) {
             synchronized (this.insertStatement) {
                 while (!this.isConsuming) {
@@ -77,8 +81,8 @@ public class Kafka implements Runnable{
                 for (ConsumerRecord<byte[], ByteBuffer> record : records) {
                     try {
                         HtmlLog.HttpLogRecord.Reader httpLog = CapnpDeserializer.getDeserializer(record.value());
-                        counter++;
-                        logger.info("Recieved message N " + counter);
+                        logger.info("Recieved message");
+                        messagesBackup.add(httpLog);
                         addLogToSQLStatement(this.insertStatement, httpLog);
                     } catch (Exception e) {
                         logger.warning("Can not deserialize the message");
