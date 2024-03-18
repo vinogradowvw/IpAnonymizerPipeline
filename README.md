@@ -1,5 +1,17 @@
 # Anonymizer ETL Pipeline
 
+### Dependencies
+
+```gradle
+implementation 'com.google.guava:guava:31.1-jre'
+implementation 'org.capnproto:runtime:0.1.16'
+implementation 'org.apache.kafka:kafka-clients:3.7.0'
+implementation 'com.clickhouse:clickhouse-jdbc:0.6.0:all'
+implementation 'org.slf4j:slf4j-api:2.0.10'
+implementation 'org.slf4j:slf4j-simple:2.0.10'
+implementation 'org.apache.httpcomponents.core5:httpcore5:5.2.4'
+```
+
 ### Language
 
 I choose this task because this, basically, is the type of task I would like to do professionally.
